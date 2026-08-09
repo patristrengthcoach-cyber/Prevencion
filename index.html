@@ -430,8 +430,338 @@
 
   // ---- Estado ----
   let state = {cat:'infantil', bloque:'posterior', tipo:'mixto'};
-  let overrides = {}; // {exId: {n, yt, dose, note}}
-  let customs = {};   // {"bloque:section"[:tipo]: [{id,n,yt,dose,note}, ...]}
+  // Datos recuperados de la sesión de trabajo anterior (Patri, ago 2026)
+  let overrides = {
+  "pM1": {
+    "n": "FOAM ROLLER ISQUIOS",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/PltWqwvJhIM"
+  },
+  "pM2": {
+    "n": "",
+    "dose": "",
+    "note": "",
+    "yt": "https://www.youtube.com/watch?v=wJmcqecWz-c"
+  },
+  "pV1": {
+    "n": "Neuro Posterior Unilateral",
+    "dose": "1 x 10 rep",
+    "note": "",
+    "yt": "https://youtu.be/Q7tRRzsqkSM"
+  },
+  "pV2": {
+    "n": "Cat Camel",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/Uv9vwlFXLGs"
+  },
+  "pV3": {
+    "n": "Elongacion Cadena Posterior de pie",
+    "dose": "",
+    "note": "",
+    "yt": "https://www.youtube.com/watch?v=g6dQyzuIu1I"
+  },
+  "pV4": {
+    "n": "Pirámide con extensión unipodal",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/nhgL5WztNyU"
+  },
+  "pV5": {
+    "n": "Bisagra cadera bipodal",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/YCTg7ai-_q4"
+  },
+  "pE1": {
+    "n": "Elevación de cadera Bipodal + Unipodal",
+    "dose": "1 x 20 + 10 rep",
+    "note": "",
+    "yt": "https://www.youtube.com/watch?v=wEk4C-sNJ6s"
+  },
+  "pE2": {
+    "n": "Bisagra Unipodal + Y",
+    "dose": "",
+    "note": "No necesaria pared si no tenéis",
+    "yt": "https://youtu.be/GgieCdSj1hY"
+  },
+  "pE3": {
+    "n": "Extensión de cadera en prono",
+    "dose": "",
+    "note": "No necesaria miniband si no tenéis. Rodilla extendida siempre.",
+    "yt": "https://youtu.be/5m1lDx50ZfE"
+  },
+  "pA4": {
+    "n": "Anchos de carrera con plancha de core en bandas",
+    "dose": "6 largos",
+    "note": "50% suave",
+    "yt": ""
+  },
+  "pA8": {
+    "n": "ADM dinámico de estructuras",
+    "dose": "6 largos",
+    "note": "Movilidades de cadera hasta medio campo y el otro medio trote 50%",
+    "yt": ""
+  },
+  "pA13": {
+    "n": "Habilidades de desplazamiento",
+    "dose": "6 largos",
+    "note": "Cambios de direccion en zonas verdes con trote a al vuelta en ancho de campo",
+    "yt": ""
+  },
+  "cV1": {
+    "n": "Rotación Dorsal + ADD",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/OBAWiBhwx-U"
+  },
+  "cV2": {
+    "n": "ADM Flexores cadera + rodilla",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/7zIL5lgNgsE"
+  },
+  "cV3": {
+    "n": "ADM Cadera + Rotadores + Lumbar",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/xTpyOFo5Xfc"
+  },
+  "cV4": {
+    "n": "",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/dgilVfWwA7o"
+  },
+  "cE1": {
+    "n": "Flexion de cadera unilateral",
+    "dose": "",
+    "note": "",
+    "yt": "https://www.youtube.com/watch?v=uBfRCz8vr24"
+  },
+  "cE2": {
+    "n": "Dead bug pierna/brazo contrario",
+    "dose": "",
+    "note": "",
+    "yt": ""
+  },
+  "cE3": {
+    "n": "",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/-zmRSN8-D9Y"
+  },
+  "hM2": {
+    "n": "Foam Roller Aductor",
+    "dose": "",
+    "note": "",
+    "yt": "https://www.youtube.com/watch?v=deoo6Z8o4mE"
+  },
+  "hV1": {
+    "n": "Neuro Posterior",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/q6KN97pr7HE"
+  },
+  "hV2": {
+    "n": "ADM Cadera sentado",
+    "dose": "",
+    "note": "Si hay dolor lumbar o rigidez hacerlo tumbado",
+    "yt": "https://www.youtube.com/watch?v=3NFrbi6VX9Y"
+  },
+  "hV3": {
+    "n": "ADM Anterior en lateral",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/z2fsU8cB5t8"
+  },
+  "hV4": {
+    "n": "ADM Cadera rotadores",
+    "dose": "",
+    "note": "Hacerlo en suelo si no hay altura (pigmaleon)",
+    "yt": "https://youtu.be/NevPdpHeXq4"
+  },
+  "hE1": {
+    "n": "Gluteo Medio + Pelvis",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/5RMieu7HAJk"
+  },
+  "hE3": {
+    "n": "Squat ISO en pared / poste",
+    "dose": "1 x 20''",
+    "note": "Sin pared opcional",
+    "yt": "https://youtu.be/e2cL8BjWXwc"
+  },
+  "tM1": {
+    "n": "Miofascial Planta del pie",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/fLRIfIPnJdg"
+  },
+  "tM2": {
+    "n": "",
+    "dose": "",
+    "note": "",
+    "yt": "https://www.youtube.com/watch?v=JsGpRGJxafM"
+  },
+  "tM3": {
+    "n": "Miofascial Tibial Posterior",
+    "dose": "",
+    "note": "",
+    "yt": "https://youtu.be/arOuZbQj-Ao"
+  },
+  "tE3": {
+    "n": "Elevación bipodal y descenso unipodal",
+    "dose": "1 x 10 rep",
+    "note": "Equilibrio",
+    "yt": "https://youtu.be/Tm1ChVKHmsM"
+  },
+  "tA5": {
+    "n": "Propio unipodal por parejas + pase de balón",
+    "dose": "1 x 10 rep",
+    "note": "Variabilidad en estímulos de equilibrio",
+    "yt": ""
+  },
+  "tA7": {
+    "n": "Saltos de",
+    "dose": "2 x 20 rep",
+    "note": "Solo complejo de tobillo (no rodilla)",
+    "yt": "https://youtu.be/a7p_7f-vYDg"
+  },
+  "tA15": {
+    "n": "Escalera de coordinación",
+    "dose": "6 x 20 (rondas)",
+    "note": "Plio base coordinativo",
+    "yt": ""
+  }
+};
+  let customs = {
+  "posterior:mio": [
+    {
+      "id": "custom-1786263059183-550",
+      "n": "Foam Roller TFL",
+      "yt": "https://www.youtube.com/watch?v=KZ70T4Pt-QE",
+      "dose": "1 x 10 rep",
+      "note": ""
+    },
+    {
+      "id": "custom-1786263244977-41",
+      "n": "Foam Roller ADD",
+      "yt": "https://www.youtube.com/watch?v=deoo6Z8o4mE",
+      "dose": "1 x 10 rep",
+      "note": ""
+    }
+  ],
+  "posterior:est": [
+    {
+      "id": "custom-1786259927226-795",
+      "n": "Apertura Gluteo Medio",
+      "yt": "https://youtu.be/2aF5HOTMHdE",
+      "dose": "1 x 12 rep",
+      "note": "No es necesaria pared. Extensión de cadera y despues apertura (muy suave)."
+    }
+  ],
+  "posterior:act:mixto": [
+    {
+      "id": "custom-1786262833350-454",
+      "n": "Tecnica con balón",
+      "yt": "",
+      "dose": "8- 10  largos",
+      "note": "Slalom, pases, paredes, con trote continuo en zonas sin balón, etc"
+    }
+  ],
+  "core:mov": [
+    {
+      "id": "custom-1786260176932-60",
+      "n": "Elongación Dorsal",
+      "yt": "https://www.youtube.com/watch?v=DMRtyCFnqFM",
+      "dose": "1 x 10 rep",
+      "note": ""
+    }
+  ],
+  "core:est": [
+    {
+      "id": "custom-1786260448629-50",
+      "n": "Transverso Isometrico resistido mano/rodilla",
+      "yt": "https://youtu.be/EQjl6Uw9Cqw",
+      "dose": "",
+      "note": ""
+    },
+    {
+      "id": "custom-1786260688408-92",
+      "n": "Plancha lateral + ADD",
+      "yt": "https://youtu.be/V3Nh3PE114o",
+      "dose": "1 x 20''",
+      "note": ""
+    }
+  ],
+  "cadera:mov": [
+    {
+      "id": "custom-1786261134032-495",
+      "n": "ADM Aductor",
+      "yt": "https://youtu.be/bmm64QDyQTA",
+      "dose": "1 x 10 rep",
+      "note": "Flexion / Extension de tronco sin slide"
+    }
+  ],
+  "cadera:est": [
+    {
+      "id": "custom-1786261454630-755",
+      "n": "Split Squat ISO",
+      "yt": "",
+      "dose": "1 x 20'' por lado",
+      "note": "Corrección tecnica (90/90)"
+    }
+  ],
+  "tobillo:mov": [
+    {
+      "id": "custom-1786261723357-693",
+      "n": "Dorsiflexión Tobillo en split",
+      "yt": "",
+      "dose": "1 x 12 rep",
+      "note": ""
+    },
+    {
+      "id": "custom-1786261799680-449",
+      "n": "Plancha + Flexo/extension tobillo",
+      "yt": "https://youtu.be/aVMT8JzXPpc",
+      "dose": "1 x 10 rep",
+      "note": ""
+    },
+    {
+      "id": "custom-1786261889898-720",
+      "n": "Extension Dorsal",
+      "yt": "",
+      "dose": "1 x 20''",
+      "note": "De pie con punta en suelo"
+    }
+  ],
+  "tobillo:est": [
+    {
+      "id": "custom-1786262022518-101",
+      "n": "Elevación Talones + pelota",
+      "yt": "https://youtu.be/0i9zR2CAyjw",
+      "dose": "1 x 10 rep",
+      "note": ""
+    },
+    {
+      "id": "custom-1786262073857-671",
+      "n": "Tibial anterior con miniband",
+      "yt": "https://www.youtube.com/watch?v=FSWLYQIkDxY",
+      "dose": "1 x 12 rep",
+      "note": ""
+    },
+    {
+      "id": "custom-1786262150277-454",
+      "n": "Triple extension",
+      "yt": "https://youtu.be/tH0r8RCPN98",
+      "dose": "1 x 10 rep",
+      "note": ""
+    }
+  ]
+};
   let order = {};     // {"bloque:section"[:tipo]: [id, id, ...]}  orden manual dentro de la sesión
   let visible = {};   // {id: true|false}  anula la visibilidad por defecto de un ejercicio
   let storageMode = 'ninguno'; // 'nube' | 'local' | 'ninguno' — dónde se está guardando de verdad
@@ -455,14 +785,14 @@
     let loaded = false;
     try{
       if(window.storage){
-        const r = await window.storage.get('rcf-overrides', true);
+        const r = await window.storage.get('rcf-overrides-v2', true);
         if(r && r.value){ applyState(JSON.parse(r.value)); loaded = true; }
         storageMode = 'nube';
       }
     }catch(e){ /* sin datos en la nube todavía */ }
     if(!loaded){
       try{
-        const raw = localStorage.getItem('rcf-overrides-local');
+        const raw = localStorage.getItem('rcf-overrides-local-v2');
         if(raw){ applyState(JSON.parse(raw)); }
         if(storageMode !== 'nube') storageMode = 'local';
       }catch(e){ storageMode = 'ninguno'; }
@@ -474,11 +804,11 @@
     let cloudOk = false, localOk = false;
     try{
       if(window.storage){
-        await window.storage.set('rcf-overrides', JSON.stringify({overrides, customs, order, visible}), true);
+        await window.storage.set('rcf-overrides-v2', JSON.stringify({overrides, customs, order, visible}), true);
         cloudOk = true;
       }
     }catch(e){ /* sin nube disponible */ }
-    try{ localStorage.setItem('rcf-overrides-local', JSON.stringify({overrides, customs, order, visible})); localOk = true; }
+    try{ localStorage.setItem('rcf-overrides-local-v2', JSON.stringify({overrides, customs, order, visible})); localOk = true; }
     catch(e){ /* navegador sin localStorage (modo privado, etc.) */ }
     storageMode = cloudOk ? 'nube' : (localOk ? 'local' : 'ninguno');
     updateStorageNote();
