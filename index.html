@@ -99,6 +99,7 @@
 .rcf-movebtns button:disabled{opacity:.3; cursor:default;}
 .rcf-card .ename{font-size:13.5px; font-weight:600; line-height:1.35; margin-bottom:6px;}
 .rcf-card .dose{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink); background:var(--paper); display:inline-block; padding:2px 8px; border-radius:5px; margin-bottom:7px; align-self:flex-start;}
+.rcf-card .peso{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8a6710; background:#FBF3DE; display:inline-block; padding:2px 8px; border-radius:5px; margin-bottom:7px; align-self:flex-start;}
 .rcf-card .ev{font-size:11px; color:var(--green-dark); line-height:1.4; margin-bottom:7px; font-style:italic;}
 .rcf-card .vidrow{display:flex; align-items:center; justify-content:space-between; gap:6px; border-top:1px dashed var(--line); padding-top:7px; margin-top:auto;}
 .rcf-card .vidstatus{font-size:11px; color:var(--muted); font-weight:600;}
@@ -131,6 +132,12 @@
 .rcf-addcard:hover{border-color:var(--navy); color:var(--navy);}
 
 .rcf-hint{font-size:11px; color:var(--muted); margin:2px 26px 18px;}
+.rcf-bloqueeditor-row{padding:0 26px; margin-top:-6px; margin-bottom:8px;}
+.rcf-bloqueeditor-toggle{background:none; border:none; color:var(--muted); font-size:11px; text-decoration:underline; cursor:pointer; padding:0;}
+.rcf-bloqueeditor-toggle:hover{color:var(--navy);}
+.rcf-bloqueeditor{margin:0 26px 16px; padding:12px 14px; background:#fff; border:1px solid var(--line); border-left:4px solid var(--navy); border-radius:8px; box-shadow:var(--shadow); display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px;}
+.rcf-bloqueeditor div label{display:block; font-size:9px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:3px;}
+.rcf-bloqueeditor div input{width:100%; font-size:12.5px; padding:6px 9px; border:1px solid var(--line); border-radius:6px; font-family:'Inter',sans-serif;}
 
 .rcf-storagenote{display:flex; align-items:flex-start; gap:7px; font-size:11px; color:var(--muted); margin:4px 26px 8px; max-width:70ch;}
 .rcf-storagenote svg{width:13px; height:13px; flex:none; margin-top:1px; opacity:.7;}
@@ -296,6 +303,8 @@
       <div class="rcf-pills" id="tipoSelector"></div>
     </div>
   </div>
+  <div class="rcf-bloqueeditor-row no-print"><button class="rcf-bloqueeditor-toggle" id="btnToggleBloqueEditor">✎ Renombrar bloques</button></div>
+  <div class="rcf-bloqueeditor no-print" id="bloqueEditorPanel" style="display:none;"></div>
   <div class="rcf-hint no-print">Sugerencia: rota los 4 bloques a lo largo de las semanas (L-X-V) y elige el tipo de sesión según la carga prevista en el campo ese día. El tipo de sesión afecta sobre todo a la activación específica final.</div>
 
   <div class="rcf-print-title" id="printTitle"></div>
@@ -930,10 +939,18 @@
   let visible = {};   // {id: true|false}  anula la visibilidad por defecto de un ejercicio
   let sessions = [];  // [{id, date, cat, bloque, tipo, completa, notas}]  memoria de sesiones realizadas
   let microciclos = {}; // {teamId: {lunes:{...}, martes:{...}, ...}}  planificación semanal por equipo
+  let bloqueOverrides = {}; // {bloqueId: 'Nombre personalizado'}
   let storageMode = 'ninguno'; // 'nube' | 'local' | 'ninguno' — dónde se está guardando de verdad
   let memFilter = {cat:'todas', bloque:'todos'};
   let showNewSessionForm = false;
   let microTeam = 'alevin';
+  let showBloqueEditor = false;
+
+  function bloqueLabel(id){
+    if(bloqueOverrides[id]) return bloqueOverrides[id];
+    const b = BLOQUES.find(x=>x.id===id);
+    return b ? b.label : id;
+  }
 
   function secKey(bloqueId, section, tipoId){
     return section === 'act' ? (bloqueId+':act:'+tipoId) : (bloqueId+':'+section);
@@ -977,6 +994,7 @@
     visible = d.visible||{};
     sessions = d.sessions||[];
     microciclos = d.microciclos||{};
+    bloqueOverrides = d.bloqueOverrides||{};
   }
 
   // ---- Storage ----
@@ -1006,11 +1024,11 @@
     let cloudOk = false, localOk = false;
     try{
       if(window.storage){
-        await window.storage.set('rcf-overrides-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos}), true);
+        await window.storage.set('rcf-overrides-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos, bloqueOverrides}), true);
         cloudOk = true;
       }
     }catch(e){ /* sin nube disponible */ }
-    try{ localStorage.setItem('rcf-overrides-local-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos})); localOk = true; }
+    try{ localStorage.setItem('rcf-overrides-local-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos, bloqueOverrides})); localOk = true; }
     catch(e){ /* navegador sin localStorage (modo privado, etc.) */ }
     storageMode = cloudOk ? 'nube' : (localOk ? 'local' : 'ninguno');
     updateStorageNote();
@@ -1119,9 +1137,11 @@
       if(!nameEl) return;
       const n = nameEl.value.trim();
       const ds = document.getElementById('dose-'+id).value.trim();
+      const pesoEl = document.getElementById('peso-'+id);
+      const pe = pesoEl ? pesoEl.value.trim() : '';
       const nt = document.getElementById('note-'+id).value.trim();
       const yt = document.getElementById('yt-'+id).value.trim();
-      overrides[id] = { n: n||undefined, dose: ds||undefined, note: nt!==''?nt:undefined, yt: yt||undefined };
+      overrides[id] = { n: n||undefined, dose: ds||undefined, peso: pe||undefined, note: nt!==''?nt:undefined, yt: yt||undefined };
       await saveData();
       flashSaved(id, storageMode);
       const status = document.querySelector('[data-exid="'+id+'"] .vidstatus');
@@ -1134,10 +1154,12 @@
       if(!nameEl) return;
       const n = nameEl.value.trim();
       const ds = document.getElementById('dosec-'+id).value.trim();
+      const pesoEl = document.getElementById('pesoc-'+id);
+      const pe = pesoEl ? pesoEl.value.trim() : '';
       const nt = document.getElementById('notec-'+id).value.trim();
       const yt = document.getElementById('ytc-'+id).value.trim();
       Object.keys(customs).forEach(k => {
-        customs[k] = customs[k].map(c => c.id===id ? {id, n, yt, dose:ds, note:nt} : c);
+        customs[k] = customs[k].map(c => c.id===id ? {id, n, yt, dose:ds, peso:pe, note:nt} : c);
       });
       await saveData();
       flashSaved(id, storageMode);
@@ -1148,8 +1170,8 @@
       const t = e.target;
       if(!t.id) return;
       let m;
-      if((m = t.id.match(/^(?:name|dose|note|yt)-(.+)$/))){ autosaveExercise(m[1]); }
-      else if((m = t.id.match(/^(?:namec|dosec|notec|ytc)-(.+)$/))){ autosaveCustom(m[1]); }
+      if((m = t.id.match(/^(?:name|dose|peso|note|yt)-(.+)$/))){ autosaveExercise(m[1]); }
+      else if((m = t.id.match(/^(?:namec|dosec|pesoc|notec|ytc)-(.+)$/))){ autosaveCustom(m[1]); }
     });
   }
 
@@ -1165,6 +1187,7 @@
     const displayName = ov.n || ex.n;
     const yt = ov.yt;
     const displayDose = ov.dose || dose(ex, catObj);
+    const pesoText = ov.peso || '';
     const noteText = (ov.note !== undefined) ? ov.note : (ex.ev || '');
     const evHtml = noteText ? '<div class="ev">' + noteText + '</div>' : '';
     const addedBadge = ex.src === 'added' ? '<span class="badge added">Añadido</span>' : '';
@@ -1173,11 +1196,13 @@
       + '<div class="rcf-badges"><span class="badge mat">'+ex.mat+'</span>'+addedBadge + moveBtnsHtml(ex.id, pos.key, pos) + '</div>'
       + '<div class="ename">'+displayName+'</div>'
       + '<div class="dose mono">'+displayDose+'</div>'
+      + (pesoText ? '<div class="peso mono">⚖ '+pesoText+'</div>' : '')
       + evHtml
       + '<div class="vidrow"><span class="vidstatus">'+(yt?'Vídeo asignado':'Sin vídeo asignado')+'</span><button class="rcf-editbtn no-print" data-editex="'+ex.id+'">✎</button></div>'
       + '<div class="rcf-editform" id="form-'+ex.id+'">'
       +   '<label>Nombre</label><input type="text" placeholder="'+ex.n+'" id="name-'+ex.id+'" value="'+(ov.n||'')+'">'
       +   '<label>Dosis</label><input type="text" placeholder="'+dose(ex, catObj)+'" id="dose-'+ex.id+'" value="'+(ov.dose||'')+'">'
+      +   '<label>Peso / RIR</label><input type="text" placeholder="ej. 20kg / RIR 2" id="peso-'+ex.id+'" value="'+(ov.peso||'')+'">'
       +   '<label>Nota / indicación técnica</label><input type="text" placeholder="Opcional" id="note-'+ex.id+'" value="'+(ov.note!==undefined?ov.note:'')+'">'
       +   '<label>Enlace de YouTube</label><input type="text" placeholder="https://youtube.com/..." id="yt-'+ex.id+'" value="'+(yt||'')+'">'
       +   '<div class="erow"><button class="save" data-savex="'+ex.id+'">Guardar</button><button class="clear" data-clearx="'+ex.id+'">Restablecer</button><button class="hidebtn" data-hidex="'+ex.id+'">Quitar de la sesión</button><span class="rcf-saveflag" id="saveflag-'+ex.id+'">guardado ✓</span></div>'
@@ -1191,11 +1216,13 @@
       + '<div class="rcf-badges"><span class="badge added">Personalizado</span>' + moveBtnsHtml(c.id, pos.key, pos) + '</div>'
       + '<div class="ename">'+(c.n||'(sin nombre)')+'</div>'
       + (c.dose ? '<div class="dose mono">'+c.dose+'</div>' : '')
+      + (c.peso ? '<div class="peso mono">⚖ '+c.peso+'</div>' : '')
       + (c.note ? '<div class="ev">'+c.note+'</div>' : '')
       + '<div class="vidrow"><span class="vidstatus">'+(c.yt?'Vídeo asignado':'Sin vídeo asignado')+'</span><button class="rcf-editbtn no-print" data-editcustom="'+c.id+'">✎</button></div>'
       + '<div class="rcf-editform" id="formc-'+c.id+'">'
       +   '<label>Nombre</label><input type="text" placeholder="Nombre del ejercicio" id="namec-'+c.id+'" value="'+(c.n||'')+'">'
       +   '<label>Dosis</label><input type="text" placeholder="ej. 2 × 10" id="dosec-'+c.id+'" value="'+(c.dose||'')+'">'
+      +   '<label>Peso / RIR</label><input type="text" placeholder="ej. 20kg / RIR 2" id="pesoc-'+c.id+'" value="'+(c.peso||'')+'">'
       +   '<label>Nota / indicación técnica</label><input type="text" placeholder="Opcional" id="notec-'+c.id+'" value="'+(c.note||'')+'">'
       +   '<label>Enlace de YouTube</label><input type="text" placeholder="https://youtube.com/..." id="ytc-'+c.id+'" value="'+(c.yt||'')+'">'
       +   '<div class="erow"><button class="save" data-savecustom="'+c.id+'">Guardar</button><button class="clear" data-delcustom="'+c.id+'">Eliminar</button><span class="rcf-saveflag" id="saveflag-'+c.id+'">guardado ✓</span></div>'
@@ -1212,6 +1239,7 @@
       + '<div class="rcf-badges"><span class="badge mat">'+ex.mat+'</span>'+addedBadge+'</div>'
       + '<div class="ename">'+(ov.n||ex.n)+'</div>'
       + '<div class="dose mono">'+(ov.dose||dose(ex, catObj))+'</div>'
+      + (ov.peso ? '<div class="peso mono">⚖ '+ov.peso+'</div>' : '')
       + (noteText ? '<div class="ev">'+noteText+'</div>' : '')
       + '<button class="rcf-addtosession no-print" data-showex="'+ex.id+'">+ Añadir a la sesión</button>'
       + '</div>';
@@ -1230,6 +1258,7 @@
       + '<div class="rcf-badges"><span class="badge mat">'+ex.mat+'</span></div>'
       + '<div class="ename">'+displayName+'</div>'
       + '<div class="dose mono">'+displayDose+'</div>'
+      + (ov.peso ? '<div class="peso mono">⚖ '+ov.peso+'</div>' : '')
       + (noteText ? '<div class="ev">'+noteText+'</div>' : '')
       + '</div>';
   }
@@ -1240,6 +1269,7 @@
       + '<div class="rcf-badges"><span class="badge added">Personalizado</span></div>'
       + '<div class="ename">'+(c.n||'(sin nombre)')+'</div>'
       + (c.dose ? '<div class="dose mono">'+c.dose+'</div>' : '')
+      + (c.peso ? '<div class="peso mono">⚖ '+c.peso+'</div>' : '')
       + (c.note ? '<div class="ev">'+c.note+'</div>' : '')
       + '</div>';
   }
@@ -1298,11 +1328,10 @@
 
   function renderFicha(bloqueId, tipoId, catId, printMode){
     const catObj = CATS.find(c=>c.id===catId);
-    const bloqueObj = BLOQUES.find(b=>b.id===bloqueId);
     const tipoObj = TIPOS.find(t=>t.id===tipoId);
     let html = '<div class="'+(printMode?'rcf-printblock':'')+'">';
     if(printMode){
-      html += '<div class="rcf-section" style="padding-bottom:0;"><h2 style="font-size:17px;">'+bloqueObj.label+' — '+catObj.label+' ('+tipoObj.label+')</h2></div>';
+      html += '<div class="rcf-section" style="padding-bottom:0;"><h2 style="font-size:17px;">'+bloqueLabel(bloqueId)+' — '+catObj.label+' ('+tipoObj.label+')</h2></div>';
     }
     html += renderTimeline();
     ['mio','mov','est','act'].forEach(function(section){
@@ -1345,18 +1374,25 @@
 
     const bloqueSel = document.getElementById('bloqueSelector');
     bloqueSel.innerHTML = BLOQUES.map(b =>
-      '<button class="rcf-pill'+(b.id===state.bloque?' active':'')+'" data-bloque="'+b.id+'" aria-pressed="'+(b.id===state.bloque)+'">'+b.label+'</button>'
+      '<button class="rcf-pill'+(b.id===state.bloque?' active':'')+'" data-bloque="'+b.id+'" aria-pressed="'+(b.id===state.bloque)+'">'+bloqueLabel(b.id)+'</button>'
     ).join('');
+
+    const bloqueEditorPanel = document.getElementById('bloqueEditorPanel');
+    bloqueEditorPanel.style.display = showBloqueEditor ? '' : 'none';
+    if(showBloqueEditor){
+      bloqueEditorPanel.innerHTML = BLOQUES.map(b =>
+        '<div><label>'+b.label+' (nombre original)</label><input type="text" data-bloque-rename="'+b.id+'" value="'+bloqueLabel(b.id).replace(/"/g,'&quot;')+'"></div>'
+      ).join('');
+    }
 
     const tipoSel = document.getElementById('tipoSelector');
     tipoSel.innerHTML = TIPOS.map(t =>
       '<button class="rcf-pill'+(t.id===state.tipo?' active':'')+'" data-tipo="'+t.id+'" aria-pressed="'+(t.id===state.tipo)+'">'+t.label+'<small>'+t.sub+'</small></button>'
     ).join('');
 
-    const bloqueObj = BLOQUES.find(b=>b.id===state.bloque);
     const tipoObj = TIPOS.find(t=>t.id===state.tipo);
     document.getElementById('printTitle').innerHTML =
-      'Bloque: ' + bloqueObj.label + '&nbsp;&nbsp;·&nbsp;&nbsp;Categoría: ' + catObj.label
+      'Bloque: ' + bloqueLabel(state.bloque) + '&nbsp;&nbsp;·&nbsp;&nbsp;Categoría: ' + catObj.label
       + '&nbsp;&nbsp;·&nbsp;&nbsp;Tipo de sesión: ' + tipoObj.label + '&nbsp;&nbsp;·&nbsp;&nbsp;Temporada 26/27';
 
     document.getElementById('fichaContainer').innerHTML = renderFicha(state.bloque, state.tipo, state.cat, false);
@@ -1375,13 +1411,12 @@
 
   function sessionCardHtml(s){
     const catObj = CATS.find(c=>c.id===s.cat) || {label:s.cat};
-    const bloqueObj = BLOQUES.find(b=>b.id===s.bloque) || {label:s.bloque};
     const tipoObj = TIPOS.find(t=>t.id===s.tipo) || {label:s.tipo};
     return '<div class="rcf-log-card'+(s.completa?' completa':'')+'" data-sessid="'+s.id+'">'
       + '<div class="rcf-log-top">'
       +   '<span class="rcf-log-date mono">'+fmtDate(s.date)+'</span>'
       +   '<span class="rcf-log-tag">'+catObj.label+'</span>'
-      +   '<span class="rcf-log-tag">'+bloqueObj.label+'</span>'
+      +   '<span class="rcf-log-tag">'+bloqueLabel(s.bloque)+'</span>'
       +   '<span class="rcf-log-tag">'+tipoObj.label+'</span>'
       +   '<span class="rcf-log-status '+(s.completa?'si':'no')+'">'+(s.completa?'Completa':'Parcial')+'</span>'
       +   '<div class="rcf-log-actions no-print">'
@@ -1394,7 +1429,7 @@
       +   '<div class="row">'
       +     '<div style="flex:1"><label>Fecha</label><input type="date" id="sessdate-'+s.id+'" value="'+s.date+'"></div>'
       +     '<div style="flex:1"><label>Categoría</label><select id="sesscat-'+s.id+'">'+CATS.map(c=>'<option value="'+c.id+'"'+(c.id===s.cat?' selected':'')+'>'+c.label+'</option>').join('')+'</select></div>'
-      +     '<div style="flex:1"><label>Bloque</label><select id="sessbloque-'+s.id+'">'+BLOQUES.map(b=>'<option value="'+b.id+'"'+(b.id===s.bloque?' selected':'')+'>'+b.label+'</option>').join('')+'</select></div>'
+      +     '<div style="flex:1"><label>Bloque</label><select id="sessbloque-'+s.id+'">'+BLOQUES.map(b=>'<option value="'+b.id+'"'+(b.id===s.bloque?' selected':'')+'>'+bloqueLabel(b.id)+'</option>').join('')+'</select></div>'
       +     '<div style="flex:1"><label>Tipo</label><select id="sesstipo-'+s.id+'">'+TIPOS.map(t=>'<option value="'+t.id+'"'+(t.id===s.tipo?' selected':'')+'>'+t.label+'</option>').join('')+'</select></div>'
       +   '</div>'
       +   '<div class="row"><div style="flex:1"><label>¿Completa?</label><select id="sesscompleta-'+s.id+'"><option value="1"'+(s.completa?' selected':'')+'>Sí</option><option value="0"'+(!s.completa?' selected':'')+'>Parcial</option></select></div></div>'
@@ -1412,7 +1447,7 @@
       + '<div class="row">'
       +   '<div style="flex:1"><label>Fecha</label><input type="date" id="newsess-date" value="'+today+'"></div>'
       +   '<div style="flex:1"><label>Categoría</label><select id="newsess-cat">'+CATS.map(c=>'<option value="'+c.id+'"'+(c.id===state.cat?' selected':'')+'>'+c.label+'</option>').join('')+'</select></div>'
-      +   '<div style="flex:1"><label>Bloque</label><select id="newsess-bloque">'+BLOQUES.map(b=>'<option value="'+b.id+'"'+(b.id===state.bloque?' selected':'')+'>'+b.label+'</option>').join('')+'</select></div>'
+      +   '<div style="flex:1"><label>Bloque</label><select id="newsess-bloque">'+BLOQUES.map(b=>'<option value="'+b.id+'"'+(b.id===state.bloque?' selected':'')+'>'+bloqueLabel(b.id)+'</option>').join('')+'</select></div>'
       +   '<div style="flex:1"><label>Tipo</label><select id="newsess-tipo">'+TIPOS.map(t=>'<option value="'+t.id+'"'+(t.id===state.tipo?' selected':'')+'>'+t.label+'</option>').join('')+'</select></div>'
       + '</div>'
       + '<div class="row"><div style="flex:1"><label>¿Completa?</label><select id="newsess-completa"><option value="1" selected>Sí</option><option value="0">Parcial</option></select></div></div>'
@@ -1425,7 +1460,7 @@
     const root = document.getElementById('memoriaView');
     if(!root) return;
     const catOptions = '<option value="todas">Todas las categorías</option>' + CATS.map(c=>'<option value="'+c.id+'">'+c.label+'</option>').join('');
-    const bloqueOptions = '<option value="todos">Todos los bloques</option>' + BLOQUES.map(b=>'<option value="'+b.id+'">'+b.label+'</option>').join('');
+    const bloqueOptions = '<option value="todos">Todos los bloques</option>' + BLOQUES.map(b=>'<option value="'+b.id+'">'+bloqueLabel(b.id)+'</option>').join('');
 
     let filtered = sessions.filter(s =>
       (memFilter.cat==='todas' || s.cat===memFilter.cat) &&
@@ -1483,7 +1518,7 @@
   }
 
   function microDayCardHtml(teamId, dayId, dayLabel, d, dateLabel){
-    const bloqueOpts = '<option value="">—</option>' + BLOQUES.map(b=>'<option value="'+b.id+'"'+(d.bloque===b.id?' selected':'')+'>'+b.label+'</option>').join('');
+    const bloqueOpts = '<option value="">—</option>' + BLOQUES.map(b=>'<option value="'+b.id+'"'+(d.bloque===b.id?' selected':'')+'>'+bloqueLabel(b.id)+'</option>').join('');
     const mdOpts = MD_TAGS.map(m=>'<option value="'+m+'"'+(d.md===m?' selected':'')+'>'+m+'</option>').join('');
     let body = '';
     if(d.tipo === 'partido'){
@@ -1562,7 +1597,7 @@
     row('Calidad de movimiento', day => '<td class="'+day.tipo+'">'+((day.tipo==='entreno'||day.tipo==='gym') ? (day.calidadMov||'—') : '—')+'</td>');
     row('Contenido', day => '<td class="'+day.tipo+'">'+((day.tipo==='entreno'||day.tipo==='gym') ? (day.contenido||'—') : '—')+'</td>');
     row('Parámetros GPS', day => '<td class="'+day.tipo+'">'+((day.tipo==='entreno'||day.tipo==='gym') ? (day.gps||'—') : '—')+'</td>');
-    row('Bloque preventivo', day => '<td class="'+day.tipo+'">'+((day.tipo==='entreno'||day.tipo==='gym') && day.bloque ? (BLOQUES.find(b=>b.id===day.bloque)||{label:day.bloque}).label : '—')+'</td>');
+    row('Bloque preventivo', day => '<td class="'+day.tipo+'">'+((day.tipo==='entreno'||day.tipo==='gym') && day.bloque ? bloqueLabel(day.bloque) : '—')+'</td>');
     row('Tipo de sesión', day => '<td class="'+day.tipo+'">'+((day.tipo==='entreno'||day.tipo==='gym') && day.tsesion ? (TIPO_SESION_OPTS.find(t=>t.id===day.tsesion)||{label:day.tsesion}).label : '—')+'</td>');
     row('Activación específica', day => '<td class="'+day.tipo+'">'+((day.tipo==='entreno'||day.tipo==='gym') && day.actEspecifica && day.actEspecifica.length ? day.actEspecifica.join(', ') : '—')+'</td>');
     row('Notas', day => '<td class="'+day.tipo+'">'+(day.notas||'—')+'</td>');
@@ -1575,6 +1610,23 @@
     document.querySelectorAll('[data-cat]').forEach(el => el.onclick = () => { state.cat = el.dataset.cat; render(); });
     document.querySelectorAll('[data-bloque]').forEach(el => el.onclick = () => { state.bloque = el.dataset.bloque; render(); });
     document.querySelectorAll('[data-tipo]').forEach(el => el.onclick = () => { state.tipo = el.dataset.tipo; render(); });
+
+    const btnToggleBloqueEditor = document.getElementById('btnToggleBloqueEditor');
+    if(btnToggleBloqueEditor) btnToggleBloqueEditor.onclick = () => { showBloqueEditor = !showBloqueEditor; render(); };
+    document.querySelectorAll('[data-bloque-rename]').forEach(el => {
+      el.addEventListener('input', () => {
+        const bloqueId = el.dataset.bloqueRename;
+        const val = el.value;
+        const pillEl = document.querySelector('[data-bloque="'+bloqueId+'"]');
+        if(pillEl) pillEl.textContent = val.trim() || BLOQUES.find(b=>b.id===bloqueId).label;
+        scheduleAutosave('bloquerename-'+bloqueId, () => {
+          const original = BLOQUES.find(b=>b.id===bloqueId).label;
+          if(val.trim() === '' || val === original) delete bloqueOverrides[bloqueId];
+          else bloqueOverrides[bloqueId] = val;
+          saveData();
+        });
+      });
+    });
 
     document.querySelectorAll('.rcf-tab').forEach(el => el.onclick = () => {
       state.view = el.dataset.view;
@@ -1802,11 +1854,10 @@
         holder.dataset.rendered = '1';
       }
       const catObj = CATS.find(c=>c.id===s.cat) || {label:s.cat};
-      const bloqueObj = BLOQUES.find(b=>b.id===s.bloque) || {label:s.bloque};
       const tipoObj = TIPOS.find(t=>t.id===s.tipo) || {label:s.tipo};
       const titleEl = document.getElementById('printTitle');
       const titleBackup = titleEl.innerHTML;
-      titleEl.innerHTML = 'Sesión del ' + fmtDate(s.date) + '&nbsp;&nbsp;·&nbsp;&nbsp;Bloque: ' + bloqueObj.label
+      titleEl.innerHTML = 'Sesión del ' + fmtDate(s.date) + '&nbsp;&nbsp;·&nbsp;&nbsp;Bloque: ' + bloqueLabel(s.bloque)
         + '&nbsp;&nbsp;·&nbsp;&nbsp;Categoría: ' + catObj.label + '&nbsp;&nbsp;·&nbsp;&nbsp;Tipo de sesión: ' + tipoObj.label
         + (s.notas ? '&nbsp;&nbsp;·&nbsp;&nbsp;Notas: ' + s.notas : '');
       const fichaContainer = document.getElementById('fichaContainer');
@@ -1860,11 +1911,14 @@
       const id = el.dataset.savex;
       const n = document.getElementById('name-'+id).value.trim();
       const ds = document.getElementById('dose-'+id).value.trim();
+      const pesoEl = document.getElementById('peso-'+id);
+      const pe = pesoEl ? pesoEl.value.trim() : '';
       const nt = document.getElementById('note-'+id).value.trim();
       const yt = document.getElementById('yt-'+id).value.trim();
       overrides[id] = {
         n: n || undefined,
         dose: ds || undefined,
+        peso: pe || undefined,
         note: nt !== '' ? nt : undefined,
         yt: yt || undefined
       };
@@ -1902,7 +1956,7 @@
       const key = el.dataset.addcustom;
       if(!customs[key]) customs[key] = [];
       const id = 'custom-' + Date.now() + '-' + Math.floor(Math.random()*1000);
-      customs[key].push({id, n:'', yt:'', dose:'', note:''});
+      customs[key].push({id, n:'', yt:'', dose:'', peso:'', note:''});
       saveData(); render();
       setTimeout(()=>{ const f = document.getElementById('formc-'+id); if(f) f.classList.add('open'); }, 30);
     });
@@ -1913,10 +1967,12 @@
       const id = el.dataset.savecustom;
       const n = document.getElementById('namec-'+id).value.trim();
       const ds = document.getElementById('dosec-'+id).value.trim();
+      const pesoEl = document.getElementById('pesoc-'+id);
+      const pe = pesoEl ? pesoEl.value.trim() : '';
       const nt = document.getElementById('notec-'+id).value.trim();
       const yt = document.getElementById('ytc-'+id).value.trim();
       Object.keys(customs).forEach(k => {
-        customs[k] = customs[k].map(c => c.id===id ? {id, n, yt, dose:ds, note:nt} : c);
+        customs[k] = customs[k].map(c => c.id===id ? {id, n, yt, dose:ds, peso:pe, note:nt} : c);
       });
       saveData(); render();
     });
