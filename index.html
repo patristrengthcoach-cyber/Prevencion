@@ -340,16 +340,26 @@
 
 <script>
 (function(){
-  const CAT_ORDER = ['alevin','infantil','cadete','juvenil'];
+  const CAT_ORDER = ['alevin','infantil','infantil_a','infantil_b','infantil_fem','cadete','cadete_a','cadete_b','cadete_fem','juvenil','juvenil_b','senior_fem'];
   const CATS = [
     {id:'alevin', label:'Alevín', series:1, rep:8, seg:15,
       note:'Categoría base, previa al pico de crecimiento (pre-PHV). Prioridad: desarrollo motor general, coordinación y variabilidad de estímulos. Evita cargas o volúmenes tipo adulto en miniatura — el objetivo es construir un repertorio motor amplio, no maximizar fuerza.'},
-    {id:'infantil', label:'Infantil', series:1, rep:10, seg:20,
+    {id:'infantil_a', label:'Infantil A', series:1, rep:10, seg:20,
       note:'Tramo de transición hacia el pico de crecimiento. Empieza a tener sentido introducir trabajo de fuerza más estructurado y monitorización algo más fina, siempre de forma progresiva y priorizando técnica sobre carga.'},
-    {id:'cadete', label:'Cadete', series:2, rep:10, seg:25, warn:true,
+    {id:'infantil_b', label:'Infantil B', series:1, rep:10, seg:20,
+      note:'Tramo de transición hacia el pico de crecimiento. Empieza a tener sentido introducir trabajo de fuerza más estructurado y monitorización algo más fina, siempre de forma progresiva y priorizando técnica sobre carga.'},
+    {id:'cadete_a', label:'Cadete A', series:2, rep:10, seg:25, warn:true,
       note:'Ventana de Pico de Velocidad de Crecimiento (PHV), con gran variabilidad individual de hasta 4-6 años entre jugadores. Es la etapa de mayor riesgo: sobreuso (Sever, Osgood-Schlatter), pérdida temporal de coordinación (torpeza adolescente) y diferencias de edad biológica entre compañeros del mismo grupo. Vigila la flexibilidad de cuádriceps y gemelo, y adapta la carga a cada jugador, no a la edad del grupo.'},
-    {id:'juvenil', label:'Juvenil', series:2, rep:12, seg:30,
-      note:'Perfil físico cercano al senior. Aquí sí son más aplicables los umbrales de carga tipo adulto y el trabajo de fuerza excéntrica a dosis completas (isquiotibiales, aductores). Vigila la acumulación de partidos y convocatorias, y sigue contrastando contra el propio histórico del jugador.'}
+    {id:'cadete_b', label:'Cadete B', series:2, rep:10, seg:25, warn:true,
+      note:'Ventana de Pico de Velocidad de Crecimiento (PHV), con gran variabilidad individual de hasta 4-6 años entre jugadores. Es la etapa de mayor riesgo: sobreuso (Sever, Osgood-Schlatter), pérdida temporal de coordinación (torpeza adolescente) y diferencias de edad biológica entre compañeros del mismo grupo. Vigila la flexibilidad de cuádriceps y gemelo, y adapta la carga a cada jugador, no a la edad del grupo.'},
+    {id:'juvenil_b', label:'Juvenil B', series:2, rep:12, seg:30,
+      note:'Perfil físico cercano al senior. Aquí sí son más aplicables los umbrales de carga tipo adulto y el trabajo de fuerza excéntrica a dosis completas (isquiotibiales, aductores). Vigila la acumulación de partidos y convocatorias, y sigue contrastando contra el propio histórico del jugador.'},
+    {id:'senior_fem', label:'Senior Fem', series:2, rep:12, seg:30,
+      note:'Perfil físico cercano al senior. Aquí sí son más aplicables los umbrales de carga tipo adulto y el trabajo de fuerza excéntrica a dosis completas (isquiotibiales, aductores). Vigila la acumulación de partidos y convocatorias, y sigue contrastando contra el propio histórico del jugador.'},
+    {id:'cadete_fem', label:'Cadete Fem', series:2, rep:10, seg:25, warn:true,
+      note:'Ventana de Pico de Velocidad de Crecimiento (PHV), con gran variabilidad individual de hasta 4-6 años entre jugadores. Es la etapa de mayor riesgo: sobreuso (Sever, Osgood-Schlatter), pérdida temporal de coordinación (torpeza adolescente) y diferencias de edad biológica entre compañeros del mismo grupo. Vigila la flexibilidad de cuádriceps y gemelo, y adapta la carga a cada jugador, no a la edad del grupo.'},
+    {id:'infantil_fem', label:'Infantil Fem', series:1, rep:10, seg:20,
+      note:'Tramo de transición hacia el pico de crecimiento. Empieza a tener sentido introducir trabajo de fuerza más estructurado y monitorización algo más fina, siempre de forma progresiva y priorizando técnica sobre carga.'}
   ];
 
   const BLOQUES = [
@@ -387,19 +397,18 @@
   };
 
   // ---- Equipos de la cantera (Microciclo) ----
-  // catMap: a qué categoría de dosificación física (de las 4 de arriba) pertenece el equipo,
-  // para que la prevención asignada use la progresión de series/repes correcta.
+  // catMap: a qué categoría específica (de las 9 de arriba) pertenece el equipo. Antes varios
+  // equipos compartían una categoría genérica (p.ej. Infantil A y B); ahora cada uno tiene la suya.
   const TEAMS = [
     {id:'alevin', label:'Alevín', catMap:'alevin'},
-    {id:'infantil_a', label:'Infantil A', catMap:'infantil'},
-    {id:'infantil_b', label:'Infantil B', catMap:'infantil'},
-    {id:'infantil_femenino', label:'Infantil Femenino', catMap:'infantil'},
-    {id:'cadete_a', label:'Cadete A', catMap:'cadete'},
-    {id:'cadete_b', label:'Cadete B', catMap:'cadete'},
-    {id:'cadete_femenino', label:'Cadete Femenino', catMap:'cadete'},
-    {id:'juvenil_a', label:'Juvenil A', catMap:'juvenil'},
-    {id:'juvenil_b', label:'Juvenil B', catMap:'juvenil'},
-    {id:'senior_femenino', label:'Senior Femenino', catMap:'juvenil'}
+    {id:'infantil_a', label:'Infantil A', catMap:'infantil_a'},
+    {id:'infantil_b', label:'Infantil B', catMap:'infantil_b'},
+    {id:'infantil_femenino', label:'Infantil Femenino', catMap:'infantil_fem'},
+    {id:'cadete_a', label:'Cadete A', catMap:'cadete_a'},
+    {id:'cadete_b', label:'Cadete B', catMap:'cadete_b'},
+    {id:'cadete_femenino', label:'Cadete Femenino', catMap:'cadete_fem'},
+    {id:'juvenil_b', label:'Juvenil B', catMap:'juvenil_b'},
+    {id:'senior_femenino', label:'Senior Femenino', catMap:'senior_fem'}
   ];
 
   const DIAS_SEMANA = [
@@ -613,7 +622,7 @@
   };
 
   // ---- Estado ----
-  let state = {cat:'infantil', bloque:'posterior', tipo:'mixto', view:'ficha'};
+  let state = {cat:'infantil_a', bloque:'posterior', tipo:'mixto', view:'ficha'};
   // Datos recuperados de la sesión de trabajo anterior (Patri, ago 2026)
   let overrides = {
   "pM1": {
@@ -1003,6 +1012,65 @@
     return pad2(d.getDate())+'/'+pad2(d.getMonth()+1);
   }
 
+  // Migración: Infantil/Cadete/Juvenil (genéricas) se convierten en categorías específicas.
+  // La antigua "Infantil" pasa a ser "Infantil A" (con todo su contenido), y de ahí se copia a
+  // "Infantil B" e "Infantil Fem". Igual con Cadete (→A, copia a B y Fem) y Juvenil (→ Juvenil B,
+  // solo cambia el nombre, y de ahí se copia a Senior Fem).
+  function migrateCategoryExpansion(){
+    const RENAME_MAP = {infantil:'infantil_a', cadete:'cadete_a', juvenil:'juvenil_b'};
+    const COPY_MAP = {infantil_b:'infantil_a', infantil_fem:'infantil_a', cadete_b:'cadete_a', cadete_fem:'cadete_a', senior_fem:'juvenil_b'};
+
+    [overrides, visible].forEach(obj => {
+      Object.keys(obj).forEach(k => {
+        const idx = k.indexOf(':');
+        if(idx === -1) return;
+        const cat = k.slice(0, idx), rest = k.slice(idx);
+        if(RENAME_MAP[cat]){
+          const newKey = RENAME_MAP[cat] + rest;
+          if(!(newKey in obj)) obj[newKey] = obj[k];
+          delete obj[k];
+        }
+      });
+      Object.keys(COPY_MAP).forEach(newCat => {
+        const srcCat = COPY_MAP[newCat];
+        Object.keys(obj).forEach(k => {
+          if(k.indexOf(srcCat+':') === 0){
+            const newKey = newCat + k.slice(srcCat.length);
+            if(!(newKey in obj)) obj[newKey] = (obj[k] && typeof obj[k]==='object') ? Object.assign({}, obj[k]) : obj[k];
+          }
+        });
+      });
+    });
+
+    [customs, order].forEach(obj => {
+      Object.keys(obj).forEach(k => {
+        const parts = k.split(':');
+        if(RENAME_MAP[parts[0]]){
+          parts[0] = RENAME_MAP[parts[0]];
+          const newKey = parts.join(':');
+          if(!(newKey in obj)) obj[newKey] = obj[k];
+          delete obj[k];
+        }
+      });
+      Object.keys(COPY_MAP).forEach(newCat => {
+        const srcCat = COPY_MAP[newCat];
+        Object.keys(obj).forEach(k => {
+          const parts = k.split(':');
+          if(parts[0] === srcCat){
+            const newParts = parts.slice(); newParts[0] = newCat;
+            const newKey = newParts.join(':');
+            if(!(newKey in obj)){
+              const val = obj[k];
+              obj[newKey] = Array.isArray(val) ? val.map(item => (item && typeof item==='object') ? Object.assign({}, item) : item) : val;
+            }
+          }
+        });
+      });
+    });
+
+    sessions.forEach(s => { if(RENAME_MAP[s.cat]) s.cat = RENAME_MAP[s.cat]; });
+  }
+
   function applyState(d){
     overrides = d.overrides||{};
     customs = d.customs||{};
@@ -1068,6 +1136,7 @@
       }catch(e){ storageMode = 'ninguno'; }
     }
     migrateLegacyCatScoping();
+    migrateCategoryExpansion();
     updateStorageNote();
     render();
   }
