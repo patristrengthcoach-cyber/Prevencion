@@ -132,7 +132,7 @@
 .rcf-addcard:hover{border-color:var(--navy); color:var(--navy);}
 
 .rcf-hint{font-size:11px; color:var(--muted); margin:2px 26px 18px;}
-.rcf-bloqueeditor-row{padding:0 26px; margin-top:-6px; margin-bottom:8px;}
+.rcf-bloqueeditor-row{padding:0 26px; margin-top:-6px; margin-bottom:8px; display:flex; gap:16px;}
 .rcf-bloqueeditor-toggle{background:none; border:none; color:var(--muted); font-size:11px; text-decoration:underline; cursor:pointer; padding:0;}
 .rcf-bloqueeditor-toggle:hover{color:var(--navy);}
 .rcf-bloqueeditor{margin:0 26px 16px; padding:12px 14px; background:#fff; border:1px solid var(--line); border-left:4px solid var(--navy); border-radius:8px; box-shadow:var(--shadow); display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px;}
@@ -303,8 +303,9 @@
       <div class="rcf-pills" id="tipoSelector"></div>
     </div>
   </div>
-  <div class="rcf-bloqueeditor-row no-print"><button class="rcf-bloqueeditor-toggle" id="btnToggleBloqueEditor">✎ Renombrar bloques</button></div>
+  <div class="rcf-bloqueeditor-row no-print"><button class="rcf-bloqueeditor-toggle" id="btnToggleBloqueEditor">✎ Renombrar bloques</button> <button class="rcf-bloqueeditor-toggle" id="btnToggleSectionEditor">✎ Renombrar fases</button></div>
   <div class="rcf-bloqueeditor no-print" id="bloqueEditorPanel" style="display:none;"></div>
+  <div class="rcf-bloqueeditor no-print" id="sectionEditorPanel" style="display:none;"></div>
   <div class="rcf-hint no-print">Sugerencia: rota los 4 bloques a lo largo de las semanas (L-X-V) y elige el tipo de sesión según la carga prevista en el campo ese día. El tipo de sesión afecta sobre todo a la activación específica final.</div>
 
   <div class="rcf-print-title" id="printTitle"></div>
@@ -940,20 +941,25 @@
   let sessions = [];  // [{id, date, cat, bloque, tipo, completa, notas}]  memoria de sesiones realizadas
   let microciclos = {}; // {teamId: {lunes:{...}, martes:{...}, ...}}  planificación semanal por equipo
   let bloqueOverrides = {}; // {bloqueId: 'Nombre personalizado'}
+  let sectionOverrides = {}; // {mio|mov|est|act: 'Nombre personalizado'}
   let storageMode = 'ninguno'; // 'nube' | 'local' | 'ninguno' — dónde se está guardando de verdad
   let memFilter = {cat:'todas', bloque:'todos'};
   let showNewSessionForm = false;
   let microTeam = 'alevin';
   let showBloqueEditor = false;
+  let showSectionEditor = false;
 
   function bloqueLabel(id){
     if(bloqueOverrides[id]) return bloqueOverrides[id];
     const b = BLOQUES.find(x=>x.id===id);
     return b ? b.label : id;
   }
+  function sectionLabel(section){
+    return sectionOverrides[section] || SECTION_LABEL[section] || section;
+  }
 
-  function secKey(bloqueId, section, tipoId){
-    return section === 'act' ? (bloqueId+':act:'+tipoId) : (bloqueId+':'+section);
+  function secKey(catId, bloqueId, section, tipoId){
+    return section === 'act' ? (catId+':'+bloqueId+':act:'+tipoId) : (catId+':'+bloqueId+':'+section);
   }
 
   function emptyDay(){ return {tipo:'entreno', md:'—', objetivo:[], calidadMov:'', contenido:'', gps:'', bloque:'', tsesion:'', actEspecifica:[], notas:''}; }
@@ -995,6 +1001,40 @@
     sessions = d.sessions||[];
     microciclos = d.microciclos||{};
     bloqueOverrides = d.bloqueOverrides||{};
+    sectionOverrides = d.sectionOverrides||{};
+  }
+
+  // Migración: antes, los ejercicios editados/personalizados/orden se compartían entre las
+  // 4 categorías (solo se guardaban por bloque+tipo). Ahora cada categoría tiene su propia
+  // sesión independiente. Para no perder nada de lo ya guardado, se copia lo antiguo a las 4.
+  function migrateLegacyCatScoping(){
+    [customs, order].forEach(obj => {
+      Object.keys(obj).forEach(k => {
+        const firstSeg = k.split(':')[0];
+        if(BLOQUES.some(b=>b.id===firstSeg)){
+          const val = obj[k];
+          CATS.forEach(c => {
+            const newKey = c.id+':'+k;
+            if(!(newKey in obj)){
+              obj[newKey] = Array.isArray(val) ? val.map(item => (item && typeof item === 'object') ? Object.assign({}, item) : item) : val;
+            }
+          });
+          delete obj[k];
+        }
+      });
+    });
+    [overrides, visible].forEach(obj => {
+      Object.keys(obj).forEach(k => {
+        if(k.indexOf(':') === -1){
+          const val = obj[k];
+          CATS.forEach(c => {
+            const newKey = c.id+':'+k;
+            if(!(newKey in obj)) obj[newKey] = (val && typeof val === 'object') ? Object.assign({}, val) : val;
+          });
+          delete obj[k];
+        }
+      });
+    });
   }
 
   // ---- Storage ----
@@ -1017,6 +1057,7 @@
         if(storageMode !== 'nube') storageMode = 'local';
       }catch(e){ storageMode = 'ninguno'; }
     }
+    migrateLegacyCatScoping();
     updateStorageNote();
     render();
   }
@@ -1024,11 +1065,11 @@
     let cloudOk = false, localOk = false;
     try{
       if(window.storage){
-        await window.storage.set('rcf-overrides-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos, bloqueOverrides}), true);
+        await window.storage.set('rcf-overrides-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos, bloqueOverrides, sectionOverrides}), true);
         cloudOk = true;
       }
     }catch(e){ /* sin nube disponible */ }
-    try{ localStorage.setItem('rcf-overrides-local-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos, bloqueOverrides})); localOk = true; }
+    try{ localStorage.setItem('rcf-overrides-local-v2', JSON.stringify({overrides, customs, order, visible, sessions, microciclos, bloqueOverrides, sectionOverrides})); localOk = true; }
     catch(e){ /* navegador sin localStorage (modo privado, etc.) */ }
     storageMode = cloudOk ? 'nube' : (localOk ? 'local' : 'ninguno');
     updateStorageNote();
@@ -1070,8 +1111,9 @@
     return cat.series + ' × ' + cat.rep + ' rep';
   }
 
-  function isVisible(ex, section, tipoId){
-    if(Object.prototype.hasOwnProperty.call(visible, ex.id)) return visible[ex.id];
+  function isVisible(ex, section, tipoId, catId){
+    const key = catId+':'+ex.id;
+    if(Object.prototype.hasOwnProperty.call(visible, key)) return visible[key];
     if(String(ex.id).indexOf('custom-')===0) return true;
     if(section === 'act') return !!(ex.tags && ex.tags.includes(tipoId));
     return !ex.extra;
@@ -1086,16 +1128,16 @@
       const rest = base.filter(e => !(e.tags && e.tags.includes(tipoId)));
       base = exact.concat(rest);
     }
-    const key = secKey(bloqueId, section, tipoId);
+    const key = secKey(catId, bloqueId, section, tipoId);
     const custs = customs[key] || [];
     return base.concat(custs);
   }
 
   function getVisibleSorted(bloqueId, section, catId, tipoId){
-    const key = secKey(bloqueId, section, tipoId);
+    const key = secKey(catId, bloqueId, section, tipoId);
     const pool = poolForSection(bloqueId, section, catId, tipoId);
-    let vArr = pool.filter(e => isVisible(e, section, tipoId));
-    const eArr = pool.filter(e => !isVisible(e, section, tipoId));
+    let vArr = pool.filter(e => isVisible(e, section, tipoId, catId));
+    const eArr = pool.filter(e => !isVisible(e, section, tipoId, catId));
     const ord = order[key];
     if(ord && ord.length){
       const idx = xid => { const i = ord.indexOf(xid); return i===-1 ? 9999 : i; };
@@ -1106,8 +1148,8 @@
 
   function moveItem(id, key, dir){
     const parts = key.split(':');
-    const bloqueId = parts[0], section = parts[1], tipoId = parts[2];
-    const {visible:vArr} = getVisibleSorted(bloqueId, section, state.cat, tipoId);
+    const catId = parts[0], bloqueId = parts[1], section = parts[2], tipoId = parts[3];
+    const {visible:vArr} = getVisibleSorted(bloqueId, section, catId, tipoId);
     const seq = vArr.map(e=>e.id);
     const i = seq.indexOf(id), j = i + dir;
     if(i<0 || j<0 || j>=seq.length) return;
@@ -1141,7 +1183,7 @@
       const pe = pesoEl ? pesoEl.value.trim() : '';
       const nt = document.getElementById('note-'+id).value.trim();
       const yt = document.getElementById('yt-'+id).value.trim();
-      overrides[id] = { n: n||undefined, dose: ds||undefined, peso: pe||undefined, note: nt!==''?nt:undefined, yt: yt||undefined };
+      overrides[state.cat+':'+id] = { n: n||undefined, dose: ds||undefined, peso: pe||undefined, note: nt!==''?nt:undefined, yt: yt||undefined };
       await saveData();
       flashSaved(id, storageMode);
       const status = document.querySelector('[data-exid="'+id+'"] .vidstatus');
@@ -1183,7 +1225,7 @@
   }
 
   function cardHtml(ex, catObj, pos){
-    const ov = overrides[ex.id] || {};
+    const ov = overrides[catObj.id+':'+ex.id] || {};
     const displayName = ov.n || ex.n;
     const yt = ov.yt;
     const displayDose = ov.dose || dose(ex, catObj);
@@ -1231,7 +1273,7 @@
   }
 
   function extraCardHtml(ex, catObj){
-    const ov = overrides[ex.id] || {};
+    const ov = overrides[catObj.id+':'+ex.id] || {};
     const addedBadge = ex.src === 'added' ? '<span class="badge added">Añadido</span>' : '';
     const noteText = (ov.note !== undefined) ? ov.note : (ex.ev || '');
     return '<div class="rcf-card extra" data-exid="'+ex.id+'">'
@@ -1248,7 +1290,7 @@
   // ---- Vista de solo lectura (para "Memoria de sesiones": ver/exportar una ficha pasada sin
   // duplicar los id= de los formularios de edición de la ficha principal) ----
   function readonlyCardHtml(ex, catObj){
-    const ov = overrides[ex.id] || {};
+    const ov = overrides[catObj.id+':'+ex.id] || {};
     const displayName = ov.n || ex.n;
     const yt = ov.yt;
     const displayDose = ov.dose || dose(ex, catObj);
@@ -1277,7 +1319,7 @@
   function renderReadonlySection(bloqueId, section, catObj, tipoId){
     const {visible:vArr} = getVisibleSorted(bloqueId, section, catObj.id, tipoId);
     const cardsHtml = vArr.map(e => String(e.id).indexOf('custom-')===0 ? readonlyCustomCardHtml(e) : readonlyCardHtml(e, catObj)).join('');
-    const heading = section==='act' ? (SECTION_LABEL.act+' — sesión '+TIPOS.find(t=>t.id===tipoId).label) : SECTION_LABEL[section];
+    const heading = section==='act' ? (sectionLabel('act')+' — sesión '+TIPOS.find(t=>t.id===tipoId).label) : sectionLabel(section);
     return '<div class="rcf-section">'
       + '<h2><span class="rcf-dot" style="background:'+SECTION_COLOR[section]+';"></span>'+heading+'</h2>'
       + '<p class="sdesc">'+SECTION_DESC[section]+'</p>'
@@ -1306,7 +1348,7 @@
       const pos = {key, canUp: i>0, canDown: i<vArr.length-1};
       return String(e.id).indexOf('custom-')===0 ? customCardHtml(e, pos) : cardHtml(e, catObj, pos);
     }).join('');
-    const heading = section==='act' ? (SECTION_LABEL.act+' — sesión '+TIPOS.find(t=>t.id===tipoId).label) : SECTION_LABEL[section];
+    const heading = section==='act' ? (sectionLabel('act')+' — sesión '+TIPOS.find(t=>t.id===tipoId).label) : sectionLabel(section);
     let extrasHtml = '';
     if(eArr.length){
       const extrasId = 'extras-'+key.replace(/[^a-zA-Z0-9]/g,'_');
@@ -1316,7 +1358,7 @@
         + '<div class="rcf-grid extras" id="'+extrasId+'">' + eArr.map(e => extraCardHtml(e, catObj)).join('') + '</div>';
     }
     return '<div class="rcf-section">'
-      + '<h2><span class="rcf-dot" style="background:'+SECTION_COLOR[section]+';"></span>'+heading+'</h2>'
+      + '<h2 data-section-heading="'+section+'"><span class="rcf-dot" style="background:'+SECTION_COLOR[section]+';"></span><span class="rcf-section-title">'+heading+'</span></h2>'
       + '<p class="sdesc">'+SECTION_DESC[section]+'</p>'
       + '<div class="rcf-grid">'
       + cardsHtml
@@ -1382,6 +1424,14 @@
     if(showBloqueEditor){
       bloqueEditorPanel.innerHTML = BLOQUES.map(b =>
         '<div><label>'+b.label+' (nombre original)</label><input type="text" data-bloque-rename="'+b.id+'" value="'+bloqueLabel(b.id).replace(/"/g,'&quot;')+'"></div>'
+      ).join('');
+    }
+
+    const sectionEditorPanel = document.getElementById('sectionEditorPanel');
+    sectionEditorPanel.style.display = showSectionEditor ? '' : 'none';
+    if(showSectionEditor){
+      sectionEditorPanel.innerHTML = ['mio','mov','est','act'].map(sec =>
+        '<div><label>'+SECTION_LABEL[sec]+' (nombre original)</label><input type="text" data-section-rename="'+sec+'" value="'+sectionLabel(sec).replace(/"/g,'&quot;')+'"></div>'
       ).join('');
     }
 
@@ -1623,6 +1673,30 @@
           const original = BLOQUES.find(b=>b.id===bloqueId).label;
           if(val.trim() === '' || val === original) delete bloqueOverrides[bloqueId];
           else bloqueOverrides[bloqueId] = val;
+          saveData();
+        });
+      });
+    });
+
+    const btnToggleSectionEditor = document.getElementById('btnToggleSectionEditor');
+    if(btnToggleSectionEditor) btnToggleSectionEditor.onclick = () => { showSectionEditor = !showSectionEditor; render(); };
+    document.querySelectorAll('[data-section-rename]').forEach(el => {
+      el.addEventListener('input', () => {
+        const sec = el.dataset.sectionRename;
+        const val = el.value;
+        const headingSpan = document.querySelector('[data-section-heading="'+sec+'"] .rcf-section-title');
+        if(headingSpan){
+          const base = val.trim() || SECTION_LABEL[sec];
+          if(sec === 'act'){
+            const tipoObj = TIPOS.find(t=>t.id===state.tipo);
+            headingSpan.textContent = base + ' — sesión ' + (tipoObj ? tipoObj.label : '');
+          } else {
+            headingSpan.textContent = base;
+          }
+        }
+        scheduleAutosave('sectionrename-'+sec, () => {
+          if(val.trim() === '' || val === SECTION_LABEL[sec]) delete sectionOverrides[sec];
+          else sectionOverrides[sec] = val;
           saveData();
         });
       });
@@ -1915,7 +1989,7 @@
       const pe = pesoEl ? pesoEl.value.trim() : '';
       const nt = document.getElementById('note-'+id).value.trim();
       const yt = document.getElementById('yt-'+id).value.trim();
-      overrides[id] = {
+      overrides[state.cat+':'+id] = {
         n: n || undefined,
         dose: ds || undefined,
         peso: pe || undefined,
@@ -1927,15 +2001,15 @@
     document.querySelectorAll('[data-clearx]').forEach(el => el.onclick = () => {
       const id = el.dataset.clearx;
       if(autosaveTimers['ex-'+id]){ clearTimeout(autosaveTimers['ex-'+id]); delete autosaveTimers['ex-'+id]; }
-      delete overrides[id]; saveData(); render();
+      delete overrides[state.cat+':'+id]; saveData(); render();
     });
     document.querySelectorAll('[data-hidex]').forEach(el => el.onclick = () => {
       const id = el.dataset.hidex;
       if(autosaveTimers['ex-'+id]){ clearTimeout(autosaveTimers['ex-'+id]); delete autosaveTimers['ex-'+id]; }
-      visible[id] = false; saveData(); render();
+      visible[state.cat+':'+id] = false; saveData(); render();
     });
     document.querySelectorAll('[data-showex]').forEach(el => el.onclick = () => {
-      visible[el.dataset.showex] = true; saveData(); render();
+      visible[state.cat+':'+el.dataset.showex] = true; saveData(); render();
     });
     document.querySelectorAll('[data-moveup]').forEach(el => el.onclick = () => {
       if(el.disabled) return;
@@ -1980,7 +2054,7 @@
       const id = el.dataset.delcustom;
       if(autosaveTimers['cu-'+id]){ clearTimeout(autosaveTimers['cu-'+id]); delete autosaveTimers['cu-'+id]; }
       Object.keys(customs).forEach(k => { customs[k] = customs[k].filter(c => c.id!==id); });
-      delete visible[id];
+      delete visible[state.cat+':'+id];
       saveData(); render();
     });
   }
