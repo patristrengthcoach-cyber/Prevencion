@@ -1252,35 +1252,25 @@
     clearTimeout(flag._t);
     flag._t = setTimeout(()=> flag.classList.remove('show'), 1800);
   }
-  function autosaveExercise(id){
-    scheduleAutosave('ex-'+id, async () => {
-      const nameEl = document.getElementById('name-'+id);
-      if(!nameEl) return;
-      const n = nameEl.value.trim();
-      const ds = document.getElementById('dose-'+id).value.trim();
-      const pesoEl = document.getElementById('peso-'+id);
-      const pe = pesoEl ? pesoEl.value.trim() : '';
-      const nt = document.getElementById('note-'+id).value.trim();
-      const yt = document.getElementById('yt-'+id).value.trim();
-      overrides[state.cat+':'+id] = { n: n||undefined, dose: ds||undefined, peso: pe||undefined, note: nt!==''?nt:undefined, yt: yt||undefined };
+  function autosaveExercise(id, catId, vals){
+    scheduleAutosave('ex-'+catId+'-'+id, async () => {
+      overrides[catId+':'+id] = {
+        n: vals.n || undefined,
+        dose: vals.dose || undefined,
+        peso: vals.peso || undefined,
+        note: vals.note !== '' ? vals.note : undefined,
+        yt: vals.yt || undefined
+      };
       await saveData();
       flashSaved(id, storageMode);
       const status = document.querySelector('[data-exid="'+id+'"] .vidstatus');
-      if(status) status.textContent = yt ? 'Vídeo asignado' : 'Sin vídeo asignado';
+      if(status) status.textContent = vals.yt ? 'Vídeo asignado' : 'Sin vídeo asignado';
     });
   }
-  function autosaveCustom(id){
+  function autosaveCustom(id, vals){
     scheduleAutosave('cu-'+id, async () => {
-      const nameEl = document.getElementById('namec-'+id);
-      if(!nameEl) return;
-      const n = nameEl.value.trim();
-      const ds = document.getElementById('dosec-'+id).value.trim();
-      const pesoEl = document.getElementById('pesoc-'+id);
-      const pe = pesoEl ? pesoEl.value.trim() : '';
-      const nt = document.getElementById('notec-'+id).value.trim();
-      const yt = document.getElementById('ytc-'+id).value.trim();
       Object.keys(customs).forEach(k => {
-        customs[k] = customs[k].map(c => c.id===id ? {id, n, yt, dose:ds, peso:pe, note:nt} : c);
+        customs[k] = customs[k].map(c => c.id===id ? {id, n:vals.n, yt:vals.yt, dose:vals.dose, peso:vals.peso, note:vals.note} : c);
       });
       await saveData();
       flashSaved(id, storageMode);
@@ -1291,8 +1281,35 @@
       const t = e.target;
       if(!t.id) return;
       let m;
-      if((m = t.id.match(/^(?:name|dose|peso|note|yt)-(.+)$/))){ autosaveExercise(m[1]); }
-      else if((m = t.id.match(/^(?:namec|dosec|pesoc|notec|ytc)-(.+)$/))){ autosaveCustom(m[1]); }
+      if((m = t.id.match(/^(?:name|dose|peso|note|yt)-(.+)$/))){
+        const id = m[1];
+        const nameEl = document.getElementById('name-'+id);
+        if(!nameEl) return;
+        const catId = state.cat; // capturado ya, no al guardar (si cambias de categoría antes de que pase medio segundo, no se pierde ni se cruza)
+        const pesoEl = document.getElementById('peso-'+id);
+        const vals = {
+          n: nameEl.value.trim(),
+          dose: document.getElementById('dose-'+id).value.trim(),
+          peso: pesoEl ? pesoEl.value.trim() : '',
+          note: document.getElementById('note-'+id).value.trim(),
+          yt: document.getElementById('yt-'+id).value.trim()
+        };
+        autosaveExercise(id, catId, vals);
+      }
+      else if((m = t.id.match(/^(?:namec|dosec|pesoc|notec|ytc)-(.+)$/))){
+        const id = m[1];
+        const nameEl = document.getElementById('namec-'+id);
+        if(!nameEl) return;
+        const pesoEl = document.getElementById('pesoc-'+id);
+        const vals = {
+          n: nameEl.value.trim(),
+          dose: document.getElementById('dosec-'+id).value.trim(),
+          peso: pesoEl ? pesoEl.value.trim() : '',
+          note: document.getElementById('notec-'+id).value.trim(),
+          yt: document.getElementById('ytc-'+id).value.trim()
+        };
+        autosaveCustom(id, vals);
+      }
     });
   }
 
@@ -2079,12 +2096,14 @@
     });
     document.querySelectorAll('[data-clearx]').forEach(el => el.onclick = () => {
       const id = el.dataset.clearx;
-      if(autosaveTimers['ex-'+id]){ clearTimeout(autosaveTimers['ex-'+id]); delete autosaveTimers['ex-'+id]; }
+      const tkey = 'ex-'+state.cat+'-'+id;
+      if(autosaveTimers[tkey]){ clearTimeout(autosaveTimers[tkey]); delete autosaveTimers[tkey]; }
       delete overrides[state.cat+':'+id]; saveData(); render();
     });
     document.querySelectorAll('[data-hidex]').forEach(el => el.onclick = () => {
       const id = el.dataset.hidex;
-      if(autosaveTimers['ex-'+id]){ clearTimeout(autosaveTimers['ex-'+id]); delete autosaveTimers['ex-'+id]; }
+      const tkey = 'ex-'+state.cat+'-'+id;
+      if(autosaveTimers[tkey]){ clearTimeout(autosaveTimers[tkey]); delete autosaveTimers[tkey]; }
       visible[state.cat+':'+id] = false; saveData(); render();
     });
     document.querySelectorAll('[data-showex]').forEach(el => el.onclick = () => {
